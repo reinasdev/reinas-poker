@@ -1,0 +1,4 @@
+interface:
+  display_name: "commit-message"
+  short_description: "Cria commits Conventional Commits por branch"
+  default_prompt: "Use $commit-message para preparar uma mensagem de commit para as alterações atuais."
