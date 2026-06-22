@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server";import { requireUser } from "@/application/auth";import { createRoom } from "@/application/rooms";import { apiError,assertSameOrigin } from "@/app/api/_shared";
+export async function POST(request:Request){try{assertSameOrigin(request);const user=await requireUser();const room=await createRoom(user.id,await request.json());return NextResponse.json({room},{status:201})}catch(e){return apiError(e)}}

@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server";import { verifyMagicCode } from "@/application/auth";import { apiError,assertSameOrigin } from "@/app/api/_shared";
+export async function POST(request:Request){try{assertSameOrigin(request);const {email,code}=await request.json();const user=await verifyMagicCode(email,code);return NextResponse.json({ok:true,needsProfile:!user.name})}catch(e){return apiError(e)}}

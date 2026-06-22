@@ -1,0 +1,2 @@
+import { NextResponse } from "next/server";import { requireUser } from "@/application/auth";import { roomProjection } from "@/application/rooms";import { apiError } from "@/app/api/_shared";
+export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){try{const user=await requireUser();return NextResponse.json(await roomProjection((await params).id,user.id))}catch(e){return apiError(e)}}

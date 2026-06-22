@@ -1,0 +1,36 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: planning_poker
+          POSTGRES_USER: planning_poker
+          POSTGRES_PASSWORD: planning_poker
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U planning_poker -d planning_poker"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://planning_poker:planning_poker@localhost:5432/planning_poker
+      AUTH_HASH_SECRET: ci-secret-with-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run db:migrate
+      - run: npm run db:validate
+      - run: npm run db:generate
+      - run: git diff --exit-code -- drizzle
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+        env: { RUN_DB_TESTS: "1" }
+      - run: npm run build
