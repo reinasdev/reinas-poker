@@ -4,7 +4,11 @@ import { env } from "@/infrastructure/config/env";
 const transport = nodemailer.createTransport({
   host: env.SMTP_HOST,
   port: env.SMTP_PORT,
-  secure: false,
+  secure: env.SMTP_SECURE,
+  auth:
+    env.SMTP_USER && env.SMTP_PASSWORD
+      ? { user: env.SMTP_USER, pass: env.SMTP_PASSWORD }
+      : undefined,
 });
 
 function escapeHtml(value: string) {

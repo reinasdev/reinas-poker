@@ -44,6 +44,32 @@ npm run db:migrate
 npm run dev
 ```
 
+## SMTP Configuration
+
+Local development uses Mailpit by default:
+
+```env
+SMTP_HOST=mailpit
+SMTP_PORT=1025
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=Planning Poker <no-reply@planning-poker.local>
+```
+
+For authenticated SMTP providers, set `SMTP_USER` and `SMTP_PASSWORD`. Use `SMTP_SECURE=true` for implicit TLS, usually port `465`; use `SMTP_SECURE=false` for plain SMTP or STARTTLS-style ports such as `587`.
+
+Example for Gmail with an app password:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-google-app-password
+SMTP_FROM=Planning Poker <your-email@gmail.com>
+```
+
 ## Migrations
 
 Schema changes must use Drizzle Kit:
