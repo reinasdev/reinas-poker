@@ -1,0 +1,4 @@
+interface:
+  display_name: "openspec-explore"
+  short_description: "Explora ideias e requisitos com OpenSpec"
+  default_prompt: "Use $openspec-explore para investigar uma ideia, problema ou requisito antes de implementar."

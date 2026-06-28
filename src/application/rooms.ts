@@ -41,6 +41,15 @@ export async function listOwnedRooms(userId: string) {
     .where(eq(rooms.adminId, userId))
     .orderBy(desc(rooms.createdAt));
 }
+export async function listAccessibleRooms(userId: string) {
+  const rows = await db
+    .select({ room: rooms })
+    .from(roomParticipants)
+    .innerJoin(rooms, eq(rooms.id, roomParticipants.roomId))
+    .where(eq(roomParticipants.userId, userId))
+    .orderBy(desc(rooms.createdAt));
+  return rows.map(({ room }) => room);
+}
 export async function getRoomBySlug(slug: string) {
   const [room] = await db
     .select()
@@ -61,6 +70,7 @@ export async function createRoom(userId: string, input: unknown) {
           slug: value.slug,
           style: value.style,
           passwordHash,
+          accessCode: value.password,
           adminId: userId,
         })
         .returning();
@@ -351,12 +361,10 @@ export async function restartRound(userId: string, roomId: string) {
       .update(votingRounds)
       .set({ status: "CLOSED" })
       .where(eq(votingRounds.id, current.round.id));
-    await tx
-      .insert(votingRounds)
-      .values({
-        taskId: current.task.id,
-        sequence: current.round.sequence + 1,
-      });
+    await tx.insert(votingRounds).values({
+      taskId: current.task.id,
+      sequence: current.round.sequence + 1,
+    });
   });
   event("round.restarted", roomId);
 }
@@ -456,6 +464,7 @@ export async function roomProjection(roomId: string, userId: string) {
     .where(eq(roomParticipants.roomId, roomId));
   let round: null | typeof votingRounds.$inferSelect = null;
   let visibleVotes: Array<{ participantId: string; value?: string }> = [];
+  let selectedVote: string | undefined;
   const current = queue.find((t) => t.status === "VOTING");
   if (current) {
     [round] = await db
@@ -470,6 +479,7 @@ export async function roomProjection(roomId: string, userId: string) {
         .from(votes)
         .where(eq(votes.roundId, round.id));
       visibleVotes = sanitizeVotes(round.status, raw);
+      selectedVote = raw.find((v) => v.participantId === member?.id)?.value;
     }
   }
   return {
@@ -480,6 +490,7 @@ export async function roomProjection(roomId: string, userId: string) {
       style: room.style,
       status: room.status,
       adminId: room.adminId,
+      accessCode: room.adminId === userId ? room.accessCode : null,
       finishedAt: room.finishedAt,
     },
     isAdmin: room.adminId === userId,
@@ -496,6 +507,7 @@ export async function roomProjection(roomId: string, userId: string) {
       status: round.status,
       sequence: round.sequence,
     },
+    selectedVote,
   };
 }
 export async function roomSummary(roomId: string) {

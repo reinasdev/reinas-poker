@@ -1,8 +1,12 @@
 "use client";
+
 import { useRouter } from "next/navigation";
 import { AsyncForm } from "./async-form";
 import { Input } from "@/components/ui/input";
 import { pathWithReturn, safeReturnPath } from "@/domain/navigation";
+
+const labelClass =
+  "block text-xs font-semibold uppercase text-[var(--muted)]";
 
 export function EmailForm({ nextPath = "/rooms" }: { nextPath?: string }) {
   const router = useRouter();
@@ -21,7 +25,7 @@ export function EmailForm({ nextPath = "/rooms" }: { nextPath?: string }) {
         );
       }}
     >
-      <label htmlFor="email" className="block text-sm font-medium">
+      <label htmlFor="email" className={labelClass}>
         Email
       </label>
       <Input
@@ -35,6 +39,7 @@ export function EmailForm({ nextPath = "/rooms" }: { nextPath?: string }) {
     </AsyncForm>
   );
 }
+
 export function CodeForm({
   email,
   nextPath = "/rooms",
@@ -56,7 +61,7 @@ export function CodeForm({
         );
       }}
     >
-      <label htmlFor="code" className="block text-sm font-medium">
+      <label htmlFor="code" className={labelClass}>
         Código mágico
       </label>
       <Input
@@ -67,10 +72,12 @@ export function CodeForm({
         maxLength={6}
         required
         placeholder="000000"
+        className="text-center text-lg tracking-[0.25em]"
       />
     </AsyncForm>
   );
 }
+
 export function ProfileForm({ nextPath = "/rooms" }: { nextPath?: string }) {
   const router = useRouter();
   const safeNext = safeReturnPath(nextPath);
@@ -81,7 +88,7 @@ export function ProfileForm({ nextPath = "/rooms" }: { nextPath?: string }) {
       submitLabel="Continuar"
       onSuccess={() => router.push(safeNext)}
     >
-      <label htmlFor="name" className="block text-sm font-medium">
+      <label htmlFor="name" className={labelClass}>
         Como devemos chamar você?
       </label>
       <Input

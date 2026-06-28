@@ -1,0 +1,4 @@
+interface:
+  display_name: "openspec-archive-change"
+  short_description: "Arquiva uma change OpenSpec concluída"
+  default_prompt: "Use $openspec-archive-change para arquivar uma change OpenSpec concluída."

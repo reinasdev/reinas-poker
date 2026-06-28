@@ -19,6 +19,9 @@
     "db:seed": "tsx src/infrastructure/db/seed.ts"
   },
   "dependencies": {
+    "@fortawesome/free-brands-svg-icons": "^7.3.0",
+    "@fortawesome/free-solid-svg-icons": "^7.3.0",
+    "@fortawesome/react-fontawesome": "^3.3.1",
     "argon2": "latest",
     "clsx": "latest",
     "drizzle-orm": "latest",
@@ -26,6 +29,7 @@
     "next": "latest",
     "nodemailer": "latest",
     "pg": "latest",
+    "qrcode.react": "^4.2.0",
     "react": "latest",
     "react-dom": "latest",
     "tailwind-merge": "latest",

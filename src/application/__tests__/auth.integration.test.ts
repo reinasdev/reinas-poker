@@ -83,4 +83,14 @@ describe.skipIf(process.env.RUN_DB_TESTS !== "1")("magic-code authentication", (
     const existing = await verifyMagicCode("profile@example.com", state.sent[1].code);
     expect(existing.name).toBe("Ada Lovelace");
   });
+
+  it("allows requesting a new code immediately after the previous code was consumed", async () => {
+    await requestMagicCode("return@example.com");
+    await verifyMagicCode("return@example.com", state.sent[0].code);
+    await requestMagicCode("return@example.com");
+    expect(state.sent).toHaveLength(2);
+    await expect(
+      verifyMagicCode("return@example.com", state.sent[1].code),
+    ).resolves.toMatchObject({ email: "return@example.com" });
+  });
 });

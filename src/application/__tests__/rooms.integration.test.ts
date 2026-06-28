@@ -19,6 +19,7 @@ import {
   editTask,
   finishRoom,
   joinRoom,
+  listAccessibleRooms,
   removeTask,
   reorderTasks,
   restartRound,
@@ -72,9 +73,14 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
     await addTask(admin.id, room.id, "Issue 2", "https://example.com/2");
     await castVote(participant.id, room.id, "8");
     let projection = await roomProjection(room.id, admin.id);
+    expect(projection.room.accessCode).toBe("1234");
+    expect(projection.selectedVote).toBeUndefined();
     expect(
       projection.participants.find((p) => p.userId === participant.id),
     ).toMatchObject({ hasVoted: true, vote: undefined });
+    projection = await roomProjection(room.id, participant.id);
+    expect(projection.room.accessCode).toBeNull();
+    expect(projection.selectedVote).toBe("8");
     await revealVotes(admin.id, room.id);
     projection = await roomProjection(room.id, participant.id);
     expect(
@@ -109,7 +115,7 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
     expect(summary.tasks[0].finalResult).toBe("13");
     expect(summary.tasks[1].finalResult).toBeNull();
   });
-  it("stores only password hashes and makes joining idempotent", async () => {
+  it("stores hashed passwords, shareable access code and makes joining idempotent", async () => {
     const [admin, participant] = await db
       .insert(users)
       .values([
@@ -126,6 +132,7 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
     const [stored] = await db.select().from(rooms).where(eq(rooms.id, room.id));
     expect(stored.passwordHash).not.toContain("1234");
     expect(stored.passwordHash).toContain("argon2id");
+    expect(stored.accessCode).toBe("1234");
     await joinRoom(participant.id, room.id, "1234");
     await joinRoom(participant.id, room.id, "1234");
     const memberships = await db
@@ -138,6 +145,25 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
         ),
       );
     expect(memberships).toHaveLength(1);
+  });
+  it("lists rooms joined by the authenticated user", async () => {
+    const [admin, participant] = await db
+      .insert(users)
+      .values([
+        { email: "accessible-owner@example.com", name: "Owner" },
+        { email: "accessible-member@example.com", name: "Member" },
+      ])
+      .returning();
+    const room = await createRoom(admin.id, {
+      name: "Accessible",
+      slug: "joinme",
+      password: "1234",
+      style: "SCRUM",
+    });
+    expect(await listAccessibleRooms(participant.id)).toHaveLength(0);
+    await joinRoom(participant.id, room.id, "1234");
+    const participantRooms = await listAccessibleRooms(participant.id);
+    expect(participantRooms.map((item) => item.id)).toContain(room.id);
   });
   it("rejects every administrative command from a participant", async () => {
     const [admin, participant] = await db

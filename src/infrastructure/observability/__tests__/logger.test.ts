@@ -6,8 +6,15 @@ describe("safe observability", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     logRequestError(new Error("code=123456 token=secret password=1234 vote=13"));
     const output = String(spy.mock.calls[0][0]);
-    expect(JSON.parse(output)).toMatchObject({ level: "error", event: "http.request.error", errorType: "Error" });
-    expect(output).not.toMatch(/123456|secret|password|vote|13/);
+    const parsed = JSON.parse(output) as Record<string, unknown>;
+    expect(parsed).toMatchObject({
+      level: "error",
+      event: "http.request.error",
+      errorType: "Error",
+    });
+    expect(parsed).not.toHaveProperty("message");
+    expect(parsed).not.toHaveProperty("stack");
+    expect(output).not.toMatch(/123456|secret|password|vote=/);
     expect(metricValue("http.request.error")).toBeGreaterThan(0);
     spy.mockRestore();
   });

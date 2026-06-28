@@ -1,0 +1,1 @@
+ALTER TABLE "rooms" ADD COLUMN "access_code" varchar(4);

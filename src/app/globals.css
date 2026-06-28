@@ -1,7 +1,151 @@
 @import "tailwindcss";
 
-:root { --background: #fafafa; --foreground: #171717; --card: #fff; --border: #e5e5e5; --primary: #18181b; --muted: #737373; --danger: #dc2626; }
-@media (prefers-color-scheme: dark) { :root { --background:#0a0a0a; --foreground:#fafafa; --card:#171717; --border:#303030; --primary:#fafafa; --muted:#a3a3a3; } }
-* { border-color: var(--border); }
-body { background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
-button, input, select { outline-offset: 2px; }
+:root {
+  color-scheme: dark;
+  --background: #000000;
+  --foreground: #f5f5f5;
+  --card: #0a0a0a;
+  --card-strong: #111111;
+  --surface: #111111;
+  --surface-hover: #1a1a1a;
+  --border: #2a2a2a;
+  --border-strong: #3f3f3f;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --muted: #8a8a8a;
+  --muted-foreground: #d4d4d4;
+  --danger: #ffffff;
+  --danger-foreground: #000000;
+  --warning: #e5e5e5;
+  --ring: #ffffff;
+  --technical: #050505;
+  --technical-border: #333333;
+  --vote-selected-bg: #ffffff;
+  --vote-selected-fg: #000000;
+  --badge-active-bg: #064e3b;
+  --badge-active-border: #34d399;
+  --badge-active-text: #ecfdf5;
+  --badge-finished-bg: #0c4a6e;
+  --badge-finished-border: #7dd3fc;
+  --badge-finished-text: #f0f9ff;
+  --badge-pending-bg: #27272a;
+  --badge-pending-border: #a1a1aa;
+  --badge-pending-text: #fafafa;
+  --badge-voting-bg: #713f12;
+  --badge-voting-border: #fbbf24;
+  --badge-voting-text: #fffbeb;
+  --badge-completed-bg: #14532d;
+  --badge-completed-border: #86efac;
+  --badge-completed-text: #f0fdf4;
+  --badge-result-bg: #164e63;
+  --badge-result-border: #67e8f9;
+  --badge-result-text: #ecfeff;
+  --badge-danger-bg: #7f1d1d;
+  --badge-danger-border: #fca5a5;
+  --badge-danger-text: #fef2f2;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #e6e6e6;
+  --card-strong: #d0d0d0;
+  --surface: #dcdcdc;
+  --surface-hover: #c8c8c8;
+  --border: #8f8f8f;
+  --border-strong: #555555;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --muted: #3f3f3f;
+  --muted-foreground: #111111;
+  --danger: #000000;
+  --danger-foreground: #ffffff;
+  --warning: #111111;
+  --ring: #000000;
+  --technical: #f7f7f7;
+  --technical-border: #555555;
+  --vote-selected-bg: #000000;
+  --vote-selected-fg: #ffffff;
+  --badge-active-bg: #d1fae5;
+  --badge-active-border: #047857;
+  --badge-active-text: #022c22;
+  --badge-finished-bg: #e0f2fe;
+  --badge-finished-border: #0369a1;
+  --badge-finished-text: #082f49;
+  --badge-pending-bg: #e4e4e7;
+  --badge-pending-border: #52525b;
+  --badge-pending-text: #18181b;
+  --badge-voting-bg: #fef3c7;
+  --badge-voting-border: #b45309;
+  --badge-voting-text: #451a03;
+  --badge-completed-bg: #dcfce7;
+  --badge-completed-border: #15803d;
+  --badge-completed-text: #052e16;
+  --badge-result-bg: #cffafe;
+  --badge-result-border: #0891b2;
+  --badge-result-text: #083344;
+  --badge-danger-bg: #fee2e2;
+  --badge-danger-border: #b91c1c;
+  --badge-danger-text: #450a0a;
+}
+
+* {
+  border-color: var(--border);
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+  letter-spacing: 0;
+}
+
+::selection {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+button,
+input,
+select {
+  outline-offset: 3px;
+}
+
+button:disabled,
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+}
+
+.svg-inline--fa {
+  display: inline-block;
+  height: 1em;
+  width: 1em;
+  overflow: visible;
+  vertical-align: -0.125em;
+}
+
+.technical-surface {
+  background: var(--technical);
+  border-color: var(--technical-border);
+}
+
+.vote-card-selected,
+button[aria-pressed="true"] {
+  background: var(--vote-selected-bg) !important;
+  border-color: var(--vote-selected-bg) !important;
+  color: var(--vote-selected-fg) !important;
+}

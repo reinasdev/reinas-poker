@@ -1,0 +1,4 @@
+interface:
+  display_name: "openspec-sync-specs"
+  short_description: "Sincroniza delta specs para specs principais"
+  default_prompt: "Use $openspec-sync-specs para aplicar delta specs de uma change OpenSpec nas specs principais."

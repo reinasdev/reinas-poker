@@ -11,7 +11,7 @@ import { sendMagicCode } from "@/infrastructure/email/mailer";
 const addMinutes=(n:number)=>new Date(Date.now()+n*60_000), addDays=(n:number)=>new Date(Date.now()+n*86_400_000);
 export async function requestMagicCode(rawEmail:string){
  const email=emailSchema.parse(rawEmail);const cutoff=new Date(Date.now()-env.MAGIC_CODE_COOLDOWN_SECONDS*1000);
- const [recent]=await db.select().from(magicCodes).where(and(eq(magicCodes.email,email),gt(magicCodes.createdAt,cutoff))).orderBy(desc(magicCodes.createdAt)).limit(1);
+ const [recent]=await db.select().from(magicCodes).where(and(eq(magicCodes.email,email),isNull(magicCodes.consumedAt),gt(magicCodes.createdAt,cutoff))).orderBy(desc(magicCodes.createdAt)).limit(1);
  if(recent)return {message:"Se o email for válido, um código será enviado."};
  const code=magicCode();await db.insert(magicCodes).values({email,codeHash:keyedHash(`${email}:${code}`),expiresAt:addMinutes(env.MAGIC_CODE_TTL_MINUTES)});
  await sendMagicCode(email,code);return {message:"Se o email for válido, um código será enviado."};
