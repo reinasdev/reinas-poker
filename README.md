@@ -1,101 +1,71 @@
 # Planning Poker
 
-MVP fullstack para estimativas colaborativas com Next.js App Router, PostgreSQL, Drizzle ORM, autenticação por código mágico e atualizações por Server-Sent Events.
+![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)
+![React](https://img.shields.io/badge/React-19-20232a?logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06b6d4?logo=tailwindcss&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169e1?logo=postgresql&logoColor=white)
+![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-migrations-c5f74f)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white)
+![Playwright](https://img.shields.io/badge/Playwright-E2E-2ead33?logo=playwright&logoColor=white)
 
-## Pré-requisitos
+Planning Poker is a dark-first, developer-focused estimation room for agile teams. It combines real-time collaborative voting, secure magic-code authentication, protected rooms, task queues, vote reveal flows, and final read-only summaries in a technical interface inspired by terminals, observability dashboards, and engineering tools.
 
-- Docker Desktop com Docker Compose
-- Make (ou execute os comandos equivalentes do `docker-compose.yml`)
+Built with Next.js App Router, PostgreSQL, Drizzle ORM, Server-Sent Events, Tailwind CSS, shadcn-style primitives, JetBrains Mono, and Font Awesome.
 
-## Ambiente local
+## Highlights
 
-1. Copie `.env.example` para `.env`. Os valores locais não são segredos de produção.
-2. Execute `make dev`.
-3. Abra a aplicação em http://localhost:3000.
-4. Abra o Mailpit em http://localhost:8025 para ler códigos mágicos.
+- Real-time Planning Poker rooms with Scrum, Fibonacci, and T-shirt decks.
+- Magic-code login by email with profile onboarding.
+- Protected rooms with four-digit access codes and invite links using `?senha=`.
+- Admin workflow for task queue management, reveal, restart, complete, and finish.
+- Participant-safe projections: hidden votes stay hidden until reveal.
+- Developer-first visual system with dark/light grayscale themes, technical labels, badges, QR code sharing, and responsive layouts.
+- Room history and final summary for completed sessions.
+- Docker-first local environment with PostgreSQL and Mailpit.
+- Automated quality gates with lint, typecheck, unit/integration tests, E2E tests, build, and migration validation.
 
-`make dev` sobe PostgreSQL e Mailpit, aguarda o healthcheck do banco, aplica explicitamente as migrations versionadas e inicia a aplicação. O startup normal de `npm run dev` não altera o schema.
+## Product Flow
 
-Comandos disponíveis:
+1. Request a magic code by email.
+2. Complete your display name on first access.
+3. Create a room with a slug, password, and voting deck.
+4. Share the room link, access code, or QR code.
+5. Add tasks, vote privately, reveal estimates, and complete rounds.
+6. Finish the room and keep a read-only summary of the session.
 
-| Comando | Finalidade |
-| --- | --- |
-| `make dev` | Preparar dependências, migrar e iniciar a aplicação |
-| `make infra` | Subir apenas PostgreSQL e Mailpit |
-| `make generate` | Gerar migration com Drizzle Kit após alterar o schema |
-| `make migrate` | Aplicar migrations versionadas |
-| `npm run db:validate` | Validar migrations em banco vazio e a partir da versão anterior |
-| `make studio` | Abrir Drizzle Studio para inspecionar o banco |
-| `make logs` | Acompanhar logs dos containers |
-| `make down` | Parar containers preservando dados |
-| `make reset` | Remover containers e o volume PostgreSQL intencionalmente |
-| `make test` | Executar testes no container da aplicação |
+## Tech Stack
 
-`docker compose up --build` é uma operação de baixo nível e não substitui `make migrate`.
+| Layer    | Tools                                                               |
+| -------- | ------------------------------------------------------------------- |
+| App      | Next.js App Router, React, TypeScript                               |
+| UI       | Tailwind CSS, shadcn-style primitives, JetBrains Mono, Font Awesome |
+| Data     | PostgreSQL, Drizzle ORM, versioned migrations                       |
+| Auth     | Magic code email flow, hashed tokens, secure cookies                |
+| Realtime | Server-Sent Events with authorized projection refresh               |
+| Infra    | Docker Compose, Mailpit                                             |
+| Quality  | ESLint, TypeScript, Vitest, Playwright                              |
 
-## Migrations
+## Quick Start
 
-O schema inicial e todas as evoluções usam Drizzle Kit. O fluxo obrigatório é:
-
-1. alterar `src/infrastructure/db/schema.ts`;
-2. executar `make generate` (ou `npm run db:generate -- --name nome_da_migration`);
-3. revisar o SQL gerado em `drizzle/`;
-4. commitar juntos o schema, SQL, `drizzle/meta/` e configurações relacionadas;
-5. executar `make migrate`.
-
-Não edite migrations já integradas: crie uma migration corretiva. Não crie tabelas, enums, índices ou constraints manualmente. Seeds (`npm run db:seed`) são opcionais, executam depois das migrations e nunca criam schema. `drizzle-kit push` não é usado em desenvolvimento, CI, staging ou produção.
-
-## Desenvolvimento sem Docker para a aplicação
-
-Com PostgreSQL e Mailpit já disponíveis, configure `DATABASE_URL` para o host e execute:
-
-```text
-npm install
-npm run db:migrate
-npm run dev
+```bash
+cp .env.example .env
+make dev
 ```
 
-## Qualidade
+Open:
 
-```text
-npm run lint
-npm run typecheck
-npm test
-npm run test:e2e
-npm run build
-```
+- App: http://localhost:3000
+- Mailpit: http://localhost:8025
 
-Antes da primeira execução E2E, instale o Chromium com `npm run test:e2e:install`. A suíte Playwright executa o fluxo público em projetos desktop e mobile. Com a aplicação já iniciada, defina `PLAYWRIGHT_BASE_URL=http://localhost:3000` para reutilizá-la sem iniciar outro processo Next.js.
+For detailed setup, commands, migrations, tests, and local development notes, see [DEVELOPMENT.md](./DEVELOPMENT.md).
 
-A CI aplica migrations em PostgreSQL vazio, verifica divergência entre schema e histórico, e executa lint, typecheck, testes e build.
-A validação `db:validate` cria bancos isolados, aplica todo o histórico em banco vazio e aplica o histórico restante sobre a versão anterior.
+## Documentation
 
-## Validação manual do fluxo
+- [Development guide](./DEVELOPMENT.md)
+- [Security policy](./SECURITY.md)
+- [OpenSpec specs](./openspec/specs)
 
-1. Solicite acesso por email e copie o código de 6 dígitos exibido no Mailpit.
-2. Complete o nome no primeiro acesso.
-3. Crie uma sala com slug, senha de 4 dígitos e baralho.
-4. Em outra sessão autenticada, abra o slug e ingresse com a senha.
-5. Como administrador, adicione e reordene tarefas.
-6. Vote nas duas sessões; confirme que apenas o estado “Votou” aparece antes da revelação.
-7. Revele, reinicie uma rodada e confirme que o histórico anterior é preservado.
-8. Conclua a tarefa com ou sem resultado e confirme que a próxima começa vazia.
-9. Finalize a sala com uma tarefa pendente e confirme o resumo somente leitura.
-10. Reinicie os containers sem remover o volume e confirme que usuários, sala, tarefas e votos permanecem.
+## License
 
-## Variáveis de ambiente
-
-Consulte `.env.example`. Tokens e códigos são persistidos somente como hash; senhas de sala usam Argon2id. O cookie de sessão é `HttpOnly`, `SameSite=Lax` e `Secure` em produção. Não registre códigos, tokens, senhas, hashes ou votos ocultos.
-
-## Arquitetura
-
-- `src/domain`: validações, baralhos, erros e projeções seguras.
-- `src/application`: casos de uso de autenticação e sala; autorização ocorre no backend.
-- `src/infrastructure`: PostgreSQL/Drizzle, hashing, SMTP/Mailpit e publisher SSE.
-- `src/app`: páginas e Route Handlers do App Router.
-
-SSE transporta apenas notificações de invalidação; o cliente recarrega a projeção autorizada. Escritas usam HTTP. O publisher é substituível para futura infraestrutura compartilhada, mas WebSocket está fora do MVP.
-
-## Deploy e rollback
-
-Execute migrations versionadas antes de direcionar tráfego para uma nova versão. Falhas de migration interrompem o deploy. Rollback da aplicação deve preservar dados; mudanças destrutivas exigem migration e plano de recuperação próprios.
+Private project.
