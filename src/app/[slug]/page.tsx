@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/application/auth";
+import { Badge, Card, CardHeader, type BadgeVariant } from "@reinas/ui";
+import { getCurrentUser, loginUrl } from "@/application/auth";
 import {
   getMembership,
   getRoomBySlug,
@@ -8,15 +9,16 @@ import {
   roomSummary,
 } from "@/application/rooms";
 import { AppNavigation } from "@/components/navigation/app-navigation";
-import { Card } from "@/components/ui/card";
 import { JoinRoomForm } from "@/components/forms/room-forms";
-import { RoomClient, type Projection } from "@/components/room/room-client";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
-import { TaskLink } from "@/components/ui/task-link";
-import { VoteValue } from "@/components/ui/vote-value";
-import { pathWithReturn } from "@/domain/navigation";
+import { RoomClient } from "@/components/room/room-client";
+import { TaskLink } from "@/components/room/task-link";
+import { VoteValue } from "@/components/room/vote-value";
+import type { Projection } from "@/components/room/types";
 import { roomPasswordSchema } from "@/domain/validation";
+import { env } from "@/infrastructure/config/env";
 import { taskStatusLabel } from "@/presentation/labels";
+
+export const dynamic = "force-dynamic";
 
 function taskBadgeVariant(status: string): BadgeVariant {
   if (status === "COMPLETED") return "completed";
@@ -31,17 +33,18 @@ export default async function RoomPage({
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ senha?: string }>;
 }) {
-  const slug = (await params).slug;
+  const { slug } = await params;
   const { senha } = await searchParams;
   const returnPath = senha
     ? `/${slug}?senha=${encodeURIComponent(senha)}`
     : `/${slug}`;
-  const room = await getRoomBySlug(slug);
-  if (!room) redirect("/");
 
-  const user = await getCurrentUser();
-  if (!user) redirect(pathWithReturn("/", returnPath));
-  if (!user.name) redirect(pathWithReturn("/onboarding", returnPath));
+  const [room, user] = await Promise.all([
+    getRoomBySlug(slug),
+    getCurrentUser(),
+  ]);
+  if (!room) redirect("/");
+  if (!user?.name) redirect(loginUrl(returnPath));
 
   if (room.status === "FINISHED") {
     const summary = await roomSummary(room.id);
@@ -58,21 +61,21 @@ export default async function RoomPage({
           </div>
         </header>
         <div className="space-y-4">
-          {summary.tasks.map((t) => (
-            <Card key={t.id}>
+          {summary.tasks.map((task) => (
+            <Card key={task.id}>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-2">
-                  <h2 className="font-semibold">{t.title}</h2>
-                  <TaskLink href={t.link} />
+                  <h2 className="font-semibold">{task.title}</h2>
+                  <TaskLink href={task.link} />
                 </div>
                 <div className="flex flex-wrap justify-end gap-2">
-                  <Badge variant={taskBadgeVariant(t.status)}>
-                    {taskStatusLabel(t.status)}
+                  <Badge variant={taskBadgeVariant(task.status)}>
+                    {taskStatusLabel(task.status)}
                   </Badge>
-                  <Badge variant={t.finalResult ? "result" : "pending"}>
-                    {t.finalResult ? (
+                  <Badge variant={task.finalResult ? "result" : "pending"}>
+                    {task.finalResult ? (
                       <>
-                        Resultado: <VoteValue value={t.finalResult} />
+                        Resultado: <VoteValue value={task.finalResult} />
                       </>
                     ) : (
                       "Sem resultado"
@@ -80,18 +83,18 @@ export default async function RoomPage({
                   </Badge>
                 </div>
               </div>
-              {t.rounds.map((r) => (
+              {task.rounds.map((round) => (
                 <div
-                  key={r.sequence}
+                  key={round.sequence}
                   className="mt-4 border-t border-[var(--border)] pt-4"
                 >
                   <div className="text-xs font-semibold uppercase text-[var(--muted)]">
-                    Rodada {r.sequence}
+                    Rodada {round.sequence}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {r.votes.map((v, i) => (
-                      <Badge key={i} variant="technical">
-                        {v.name}: <VoteValue value={v.value} />
+                    {round.votes.map((vote, index) => (
+                      <Badge key={index} variant="technical">
+                        {vote.name}: <VoteValue value={vote.value} />
                       </Badge>
                     ))}
                   </div>
@@ -106,31 +109,29 @@ export default async function RoomPage({
 
   if (!(await getMembership(room.id, user.id))) {
     const password = roomPasswordSchema.safeParse(senha);
+    let joined = false;
     if (password.success) {
-      let joined = false;
       try {
         await joinRoom(user.id, room.id, password.data);
         joined = true;
       } catch {
-        // Fall back to the manual password form for expired, invalid or closed rooms.
+        // Cai no formulário manual para senha inválida ou sala encerrada.
       }
-      if (joined) redirect(`/${slug}`);
     }
+    if (joined) redirect(`/${slug}`);
+
     return (
       <div className="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-8">
         <AppNavigation userName={user.name} />
-        <Card className="w-full border-[var(--technical-border)]">
+        <Card tone="technical" className="w-full">
           <div className="max-w-md">
-            <div className="mb-6 space-y-2">
-              <Badge variant="technical">/{room.slug}</Badge>
-              <p className="text-xs font-semibold uppercase text-[var(--primary)]">
-                rooms.access
-              </p>
-              <h1 className="text-2xl font-bold">{room.name}</h1>
-              <p className="text-sm text-[var(--muted-foreground)]">
-                Informe a senha para entrar como participante.
-              </p>
-            </div>
+            <Badge variant="technical">/{room.slug}</Badge>
+            <CardHeader
+              className="mt-2"
+              eyebrow="rooms.access"
+              title={<span className="text-2xl font-bold">{room.name}</span>}
+              description="Informe a senha para entrar como participante."
+            />
             <JoinRoomForm roomId={room.id} />
           </div>
         </Card>
@@ -142,6 +143,7 @@ export default async function RoomPage({
     <RoomClient
       roomId={room.id}
       currentUserName={user.name}
+      origin={new URL(env.APP_URL).origin}
       initial={(await roomProjection(room.id, user.id)) as Projection}
     />
   );

@@ -1,127 +1,162 @@
-# Development
+# Desenvolvimento
 
-Technical guide for running and validating Planning Poker locally.
+Guia técnico para rodar, testar e validar o Planning Poker localmente.
 
-## Prerequisites
+## Pré-requisitos
 
-- Docker Desktop with Docker Compose
-- Make, or equivalent `docker compose` commands
-- Node.js only if running the app outside Docker
+- Node.js 22+.
+- Docker Desktop com Docker Compose, para PostgreSQL.
+- Git — o `@reinas/ui` é instalado clonando o repositório do design system.
+- O [`reinas-id`](https://github.com/reinasdev/reinas-id) clonado ao lado: sem
+  ele não há login.
 
-## Local Environment
-
-1. Copy `.env.example` to `.env`. Local values are not production secrets.
-2. Run `make dev`.
-3. Open the app at http://localhost:3000.
-4. Open Mailpit at http://localhost:8025 to read magic-code emails.
-
-`make dev` starts PostgreSQL and Mailpit, waits for the database healthcheck, applies versioned migrations, and starts the app. The regular `npm run dev` command does not modify the database schema.
-
-## Commands
-
-| Command               | Purpose                                                     |
-| --------------------- | ----------------------------------------------------------- |
-| `make dev`            | Install through Docker, migrate, and start the app          |
-| `make infra`          | Start only PostgreSQL and Mailpit                           |
-| `make generate`       | Generate a Drizzle migration after schema changes           |
-| `make migrate`        | Apply versioned migrations                                  |
-| `npm run db:validate` | Validate migrations from empty and previous database states |
-| `make studio`         | Open Drizzle Studio                                         |
-| `make logs`           | Follow container logs                                       |
-| `make down`           | Stop containers while preserving data                       |
-| `make reset`          | Remove containers and the PostgreSQL volume                 |
-| `make test`           | Run tests inside the app container                          |
-
-`docker compose up --build` is a low-level operation and does not replace `make migrate`.
-
-## Running Without Docker for the App
-
-With PostgreSQL and Mailpit already available:
+## Ambiente local
 
 ```bash
 npm install
+cp .env.example .env
+
+make infra          # Postgres em :5432
 npm run db:migrate
-npm run dev
+npm run dev         # http://localhost:3000
 ```
 
-## SMTP Configuration
+Em outro terminal, no repositório do `reinas-id`:
 
-Local development uses Mailpit by default:
+```bash
+make infra          # Postgres em :5433 e Mailpit em :8025
+npm run db:migrate
+npm run dev         # http://localhost:3001
+```
+
+| Endereço                | Serviço                              |
+| ----------------------- | ------------------------------------ |
+| http://localhost:3000   | Planning Poker                       |
+| http://localhost:3001   | Reinas ID (repositório separado)     |
+| http://localhost:8025   | Mailpit — códigos de acesso          |
+| localhost:5432          | PostgreSQL (`reinas_poker`)           |
+
+`make up` sobe este projeto em container. O `reinas-id` continua fora dele: o
+compose daqui aponta para `host.docker.internal:3001`.
+
+## Comandos
+
+| Comando               | Finalidade                                                       |
+| --------------------- | ---------------------------------------------------------------- |
+| `make up`             | Sobe Postgres, migra e inicia a aplicação em containers           |
+| `make infra`          | Sobe apenas o PostgreSQL                                          |
+| `make migrate`        | Aplica as migrations versionadas                                  |
+| `make generate`       | Gera migration Drizzle após mudança de schema                     |
+| `make validate`       | Valida migrations em banco vazio e no upgrade da versão anterior  |
+| `make studio`         | Abre o Drizzle Studio                                             |
+| `make down` / `reset` | Para os containers / remove também o volume                       |
+| `make test`           | Vitest                                                            |
+| `make test-e2e`       | Playwright                                                        |
+
+## Ligação com o Reinas ID
+
+Em `.env`:
 
 ```env
-SMTP_HOST=mailpit
-SMTP_PORT=1025
-SMTP_SECURE=false
-SMTP_USER=
-SMTP_PASSWORD=
-SMTP_FROM=Planning Poker <no-reply@planning-poker.local>
+REINAS_ID_URL=http://localhost:3001          # usada pelo servidor
+REINAS_ID_PUBLIC_URL=http://localhost:3001   # para onde o navegador é mandado
+REINAS_ID_CLIENT_ID=reinas-poker
+REINAS_ID_CLIENT_SECRET=development-client-secret-change-me
+SESSION_CACHE_SECONDS=60                     # janela de cache da introspecção
 ```
 
-For authenticated SMTP providers, set `SMTP_USER` and `SMTP_PASSWORD`. Use `SMTP_SECURE=true` for implicit TLS, usually port `465`; use `SMTP_SECURE=false` for plain SMTP or STARTTLS-style ports such as `587`.
-
-Example for Gmail with an app password:
+Esta aplicação precisa estar cadastrada no `.env` do `reinas-id`, com o mesmo
+segredo:
 
 ```env
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your-google-app-password
-SMTP_FROM=Planning Poker <your-email@gmail.com>
+REINAS_ID_CLIENTS=[{"id":"reinas-poker","name":"Planning Poker","secret":"development-client-secret-change-me","redirectUris":["http://localhost:3000/auth/callback"]}]
 ```
+
+O `redirect_uri` é comparado **exatamente**. As duas URLs do ID só divergem
+quando há rede interna: em container, o servidor usa
+`http://host.docker.internal:3001` e o navegador continua em `http://localhost:3001`.
+
+## Design system
+
+Os componentes vêm de `@reinas/ui`, instalado direto do GitHub:
+
+```jsonc
+"dependencies": { "@reinas/ui": "git+https://github.com/reinasdev/reinas-ui.git#main" }
+```
+
+Para atualizar depois de uma mudança lá: `npm update @reinas/ui`.
+
+Para iterar nos dois ao mesmo tempo, aponte para a pasta local e reverta antes
+de commitar:
+
+```bash
+npm install ../reinas-ui
+```
+
+O Tailwind precisa enxergar as classes usadas dentro do pacote — daí o `@source`
+explícito em `src/app/globals.css`, já que `node_modules` é ignorado por padrão.
 
 ## Migrations
 
-Schema changes must use Drizzle Kit:
+Mudanças de schema sempre passam pelo Drizzle Kit:
 
-1. Change `src/infrastructure/db/schema.ts`.
-2. Run `make generate` or `npm run db:generate -- --name migration_name`.
-3. Review the SQL generated in `drizzle/`.
-4. Commit schema, SQL, `drizzle/meta/`, and related config together.
-5. Run `make migrate`.
+1. Altere `src/infrastructure/db/schema.ts`.
+2. Rode `make generate`.
+3. Renomeie o arquivo gerado para algo legível e ajuste o `tag` em
+   `drizzle/meta/_journal.json`.
+4. Revise o SQL.
+5. Commit schema, SQL e `drizzle/meta/` juntos.
+6. Rode `make migrate`.
 
-Do not edit already integrated migrations. Create a corrective migration instead. Do not create tables, enums, indexes, or constraints manually. Seeds are optional and never create schema. `drizzle-kit push` is not used in development, CI, staging, or production.
+`npm run db:validate` recria dois bancos descartáveis e confere que as migrations
+funcionam tanto do zero quanto a partir da versão anterior, inclusive o número de
+tabelas esperado. Não edite migrations já integradas; crie uma corretiva.
+`drizzle-kit push` não é usado em lugar nenhum, e há teste garantindo isso.
 
-## Quality Checks
+## Testes
+
+Sem PostgreSQL (os testes de banco são pulados):
 
 ```bash
-npm run lint
-npm run typecheck
 npm test
-npm run test:e2e
-npm run build
 ```
 
-Before the first E2E run, install Chromium:
+Com PostgreSQL:
 
 ```bash
-npm run test:e2e:install
+make infra
+npm run db:migrate
+RUN_DB_TESTS=1 npm test
 ```
 
-With the app already running, set `PLAYWRIGHT_BASE_URL=http://localhost:3000` to reuse it during Playwright runs.
+End-to-end com Playwright. Sobe o servidor desta aplicação sozinho, mas exige o
+`reinas-id` e o Mailpit dele de pé — um `globalSetup` confere isso antes de
+rodar e falha com instrução caso falte algo:
 
-## Manual Smoke Flow
+```bash
+npx playwright install chromium
+make infra
+npm run db:migrate
+npm run test:e2e
+```
 
-1. Request email access and copy the six-digit code from Mailpit.
-2. Complete the first-access display name.
-3. Create a room with slug, four-digit password, and deck.
-4. In another authenticated session, open the slug and join with the password or invite link.
-5. As admin, add and reorder tasks.
-6. Vote in both sessions and confirm votes are hidden before reveal.
-7. Reveal, restart a round, and confirm previous history is preserved.
-8. Complete a task with or without a result.
-9. Finish the room and confirm the read-only summary.
-10. Restart containers without removing the volume and confirm persisted data remains.
+Para apontar para instâncias já rodando em outro endereço, use
+`PLAYWRIGHT_IDENTITY_URL` e `MAILPIT_URL`.
 
-## Architecture
+Os prints ficam em `test-results/screenshots/`. O fluxo completo gera a sequência
+numerada de telas, de login a logout.
 
-- `src/domain`: validation, voting decks, errors, and safe projections.
-- `src/application`: auth and room use cases; authorization is enforced server-side.
-- `src/infrastructure`: PostgreSQL/Drizzle, hashing, SMTP/Mailpit, and SSE publisher.
-- `src/app`: App Router pages and route handlers.
+No CI, o job de E2E faz checkout do repositório do `reinas-id` e o sobe antes de
+rodar os testes.
 
-SSE only transports invalidation events; clients reload authorized projections. Writes use HTTP. The publisher can be replaced later for shared infrastructure.
+## Notas de implementação
 
-## Deployment Notes
-
-Run versioned migrations before routing traffic to a new release. Migration failures must stop deployment. Application rollback should preserve data; destructive changes require their own migration and recovery plan.
+- **Hidratação nos testes.** O Playwright espera o elemento, não o React. Os
+  helpers usam `waitForHydration` antes de clicar em formulários; sem isso o
+  clique cai num formulário ainda estático e some.
+- **Cookies.** O Next não permite gravar cookie durante o render de uma página.
+  Por isso `/auth/callback` é Route Handler, não página.
+- **Cache de sessão.** A introspecção fica em memória por `SESSION_CACHE_SECONDS`
+  e é descartada no logout, para que a revogação tenha efeito imediato.
+- **Espelho de usuários.** `users` guarda o id emitido pelo `reinas-id`, nunca um
+  id local. As factories de teste refletem isso gerando o id explicitamente.

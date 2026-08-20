@@ -1,42 +1,85 @@
-# Security Policy
+# Política de Segurança
 
-## Reporting a Vulnerability
+## Reporte de vulnerabilidades
 
-Please do not disclose security vulnerabilities in public issues.
+Não divulgue vulnerabilidades de segurança em issues públicas.
 
-Use GitHub private vulnerability reporting if it is enabled for this repository. If it is not available, contact the repository maintainer directly before publishing details.
+Use o recurso de private vulnerability reporting do GitHub, se estiver
+habilitado. Se não estiver, contate o mantenedor do repositório diretamente
+antes de publicar detalhes.
 
-When reporting, include:
+Inclua no reporte:
 
-- affected route, workflow, or component;
-- reproduction steps;
-- expected impact;
-- relevant logs or screenshots with secrets removed.
+- rota, fluxo ou componente afetado;
+- passos de reprodução;
+- impacto esperado;
+- logs ou screenshots relevantes com segredos removidos.
 
-## Supported Version
+Se a falha for de autenticação, reporte no
+[`reinas-id`](https://github.com/reinasdev/reinas-id): é lá que ficam as
+credenciais.
 
-This repository is currently maintained from the `main` branch. Security fixes are applied to the active codebase only.
+## Versão suportada
 
-## Security Controls
+O repositório é mantido a partir da branch `main`. Correções de segurança são
+aplicadas apenas ao código ativo.
 
-- Email login requests return a neutral response to reduce account enumeration.
-- Magic codes are random six-digit values, HMAC-hashed with the normalized email, expire after ten minutes, allow limited attempts, and are consumed under a row lock.
-- Session tokens are random bytes. Only their HMAC is stored.
-- Session cookies are `HttpOnly`, `SameSite=Lax`, path-scoped, and `Secure` in production.
-- Room passwords accept exactly four digits and are stored with Argon2id.
-- Join attempts are throttled per room and user.
-- Mutating HTTP handlers enforce same-origin requests.
-- Authentication, profile completion, participation, administrator role, and active-room state are checked server-side.
-- Hidden vote values are removed from open and closed projections.
-- Server-Sent Events carry only room-scoped invalidation events, never vote snapshots.
-- Room state transitions lock the room row in one PostgreSQL transaction.
-- Structured logs exclude magic codes, session tokens, passwords, hashes, emails, and hidden votes.
+## Fronteira de confiança
 
-## Production Requirements
+Esta aplicação não guarda credencial nenhuma. Ela recebe do `reinas-id` um token
+opaco de sessão e o troca por dados do usuário; nunca vê email de código, senha
+ou hash de identidade.
 
-- Serve the app over HTTPS.
-- Use a strong unique `AUTH_HASH_SECRET`.
-- Use restricted PostgreSQL and SMTP credentials.
-- Use a shared rate-limit and event backend when running multiple app instances.
-- Configure reverse proxies to replace, not append, untrusted forwarding headers used for rate limiting.
-- Review dependency audit findings before deployment.
+O espelho local de usuários guarda apenas id, email e nome.
+
+## Controles
+
+### Sessão
+
+- Toda página autenticada valida a sessão contra o `reinas-id`; token
+  desconhecido é tratado como visitante.
+- O cache de introspecção é por processo, expira em `SESSION_CACHE_SECONDS` e é
+  descartado no logout, para que a revogação tenha efeito.
+- Sair passa pelo `/logout` do `reinas-id`: apagar só o cookie local faria o
+  próximo redirecionamento reautenticar em silêncio.
+- O cookie de sessão usa `HttpOnly`, `SameSite=Lax`, escopo de path e `Secure`
+  em produção.
+- O `state` do retorno é validado como caminho interno, o que evita usar o
+  callback como redirecionamento aberto.
+
+### Salas
+
+- Senhas de sala aceitam exatamente quatro dígitos e são guardadas com Argon2id.
+- Tentativas de entrada em sala são limitadas por sala e usuário.
+- Participação, papel de administrador e estado ativo da sala são verificados no
+  servidor, nunca no cliente.
+- Transições de estado da sala bloqueiam a linha da sala em uma transação.
+
+### Votos
+
+- Votos ocultos são removidos da projeção enquanto a rodada não é revelada — o
+  cliente jamais recebe um voto que não deveria ver.
+- Server-Sent Events transportam apenas invalidações por sala, nunca snapshots.
+
+### HTTP
+
+- Handlers mutáveis validam mesma origem.
+- A projeção responde `304` por ETag, sem corpo, quando nada mudou.
+
+## Logs
+
+Logs estruturados excluem tokens, segredo de cliente, senhas, hashes, emails e
+votos ocultos.
+
+## Requisitos de produção
+
+- Sirva via HTTPS.
+- Use um segredo de cliente forte e distinto do de qualquer outra aplicação.
+- Use credenciais PostgreSQL restritas.
+- Com múltiplas instâncias, troque o rate limit e o publisher de eventos em
+  memória por um backend compartilhado.
+- Configure proxies reversos para **substituir**, não anexar, os headers de
+  encaminhamento usados no rate limit.
+- Revise alertas de auditoria de dependências antes do deploy.
+
+Detalhes operacionais ficam em [DEPLOYMENT.md](./DEPLOYMENT.md).

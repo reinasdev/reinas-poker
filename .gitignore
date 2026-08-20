@@ -9,3 +9,10 @@ test-results/
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# Gerados pelo `next dev` (Next 16) — não fazem parte do projeto
+AGENTS.md
+CLAUDE.md
+
+# Checkout auxiliar do reinas-id usado pelo E2E no CI
+.reinas-id/

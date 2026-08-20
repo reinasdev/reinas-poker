@@ -1,2 +1,0 @@
-import { NextResponse } from "next/server";import { requestMagicCode } from "@/application/auth";import { apiError,assertSameOrigin } from "@/app/api/_shared";import { assertRateLimit } from "@/infrastructure/security/rate-limit";
-export async function POST(request:Request){try{assertSameOrigin(request);assertRateLimit(`magic:${request.headers.get("x-forwarded-for")??"local"}`,10,60_000);const {email}=await request.json();return NextResponse.json(await requestMagicCode(email))}catch(e){return apiError(e)}}

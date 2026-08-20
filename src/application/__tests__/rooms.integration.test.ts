@@ -1,11 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/infrastructure/db/client";
 import {
-  magicCodes,
   roomParticipants,
   rooms,
-  sessions,
   tasks,
   users,
   votes,
@@ -36,16 +35,14 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
     await db.delete(tasks);
     await db.delete(roomParticipants);
     await db.delete(rooms);
-    await db.delete(sessions);
-    await db.delete(magicCodes);
     await db.delete(users);
   });
   it("enforces authorization, hides votes, preserves rounds and finalizes", async () => {
     const [admin, participant] = await db
       .insert(users)
       .values([
-        { email: "admin@example.com", name: "Admin" },
-        { email: "participant@example.com", name: "Participant" },
+        { id: randomUUID(), email: "admin@example.com", name: "Admin" },
+        { id: randomUUID(), email: "participant@example.com", name: "Participant" },
       ])
       .returning();
     const room = await createRoom(admin.id, {
@@ -119,8 +116,8 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
     const [admin, participant] = await db
       .insert(users)
       .values([
-        { email: "owner@example.com", name: "Owner" },
-        { email: "joiner@example.com", name: "Joiner" },
+        { id: randomUUID(), email: "owner@example.com", name: "Owner" },
+        { id: randomUUID(), email: "joiner@example.com", name: "Joiner" },
       ])
       .returning();
     const room = await createRoom(admin.id, {
@@ -150,8 +147,8 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
     const [admin, participant] = await db
       .insert(users)
       .values([
-        { email: "accessible-owner@example.com", name: "Owner" },
-        { email: "accessible-member@example.com", name: "Member" },
+        { id: randomUUID(), email: "accessible-owner@example.com", name: "Owner" },
+        { id: randomUUID(), email: "accessible-member@example.com", name: "Member" },
       ])
       .returning();
     const room = await createRoom(admin.id, {
@@ -169,8 +166,8 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
     const [admin, participant] = await db
       .insert(users)
       .values([
-        { email: "admin-authz@example.com", name: "Admin" },
-        { email: "member-authz@example.com", name: "Member" },
+        { id: randomUUID(), email: "admin-authz@example.com", name: "Admin" },
+        { id: randomUUID(), email: "member-authz@example.com", name: "Member" },
       ])
       .returning();
     const room = await createRoom(admin.id, {
@@ -207,7 +204,7 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
   it("maintains a contiguous queue and exactly one current task", async () => {
     const [admin] = await db
       .insert(users)
-      .values({ email: "queue@example.com", name: "Queue Admin" })
+      .values({ id: randomUUID(), email: "queue@example.com", name: "Queue Admin" })
       .returning();
     const room = await createRoom(admin.id, {
       name: "Queue",
@@ -248,8 +245,8 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
     const [admin, participant] = await db
       .insert(users)
       .values([
-        { email: "race-admin@example.com", name: "Admin" },
-        { email: "race-member@example.com", name: "Member" },
+        { id: randomUUID(), email: "race-admin@example.com", name: "Admin" },
+        { id: randomUUID(), email: "race-member@example.com", name: "Member" },
       ])
       .returning();
     const room = await createRoom(admin.id, {
@@ -319,9 +316,9 @@ describe.skipIf(!run)("room workflow with PostgreSQL", () => {
     const [admin, participant, outsider] = await db
       .insert(users)
       .values([
-        { email: "finish-admin@example.com", name: "Admin" },
-        { email: "finish-member@example.com", name: "Member" },
-        { email: "finish-outsider@example.com", name: "Outsider" },
+        { id: randomUUID(), email: "finish-admin@example.com", name: "Admin" },
+        { id: randomUUID(), email: "finish-member@example.com", name: "Member" },
+        { id: randomUUID(), email: "finish-outsider@example.com", name: "Outsider" },
       ])
       .returning();
     const room = await createRoom(admin.id, {

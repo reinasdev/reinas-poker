@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faChevronDown,
-  faRightFromBracket,
-} from "@fortawesome/free-solid-svg-icons";
+import { ChevronDown, LogOut } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Button, Field, Input, ThemeToggle } from "@reinas/ui";
 import { authenticatedBackPath } from "@/domain/navigation";
-import { ThemeToggle } from "@/components/navigation/theme-toggle";
 
 export function AppNavigation({ userName }: { userName?: string | null }) {
   const router = useRouter();
@@ -22,6 +17,7 @@ export function AppNavigation({ userName }: { userName?: string | null }) {
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!profileOpen) return;
     function close(event: MouseEvent) {
       if (
         profileRef.current &&
@@ -31,7 +27,7 @@ export function AppNavigation({ userName }: { userName?: string | null }) {
     }
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
-  }, []);
+  }, [profileOpen]);
 
   async function saveName(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,7 +47,11 @@ export function AppNavigation({ userName }: { userName?: string | null }) {
 
   async function signOut() {
     const response = await fetch("/api/auth/logout", { method: "POST" });
-    if (response.ok) router.replace("/");
+    if (!response.ok) return;
+    const { redirectTo } = (await response.json()) as { redirectTo?: string };
+    // Sair de verdade passa pelo reinas-id: só apagar o cookie local faria o
+    // próximo redirecionamento reautenticar em silêncio.
+    window.location.assign(redirectTo ?? "/");
   }
 
   return (
@@ -61,28 +61,22 @@ export function AppNavigation({ userName }: { userName?: string | null }) {
     >
       <div className="flex flex-wrap items-center gap-2">
         {backPath && (
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => router.push(backPath)}
-          >
-            Voltar
-          </Button>
+          <Link href={backPath}>
+            <Button type="button" variant="ghost">
+              Voltar
+            </Button>
+          </Link>
         )}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push("/rooms")}
-        >
-          Minhas salas
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push("/rooms/new")}
-        >
-          Criar sala
-        </Button>
+        <Link href="/rooms" prefetch>
+          <Button type="button" variant="outline">
+            Minhas salas
+          </Button>
+        </Link>
+        <Link href="/rooms/new" prefetch>
+          <Button type="button" variant="outline">
+            Criar sala
+          </Button>
+        </Link>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -97,7 +91,7 @@ export function AppNavigation({ userName }: { userName?: string | null }) {
             aria-haspopup="menu"
           >
             <span className="max-w-40 truncate">{userName ?? "Perfil"}</span>
-            <FontAwesomeIcon icon={faChevronDown} className="text-xs" />
+            <ChevronDown size={14} aria-hidden="true" />
           </Button>
 
           {profileOpen && (
@@ -106,21 +100,17 @@ export function AppNavigation({ userName }: { userName?: string | null }) {
               className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 shadow-xl shadow-black/30"
             >
               <form onSubmit={saveName} className="space-y-3">
-                <label
-                  htmlFor="profile-name"
-                  className="block text-xs font-semibold uppercase text-[var(--muted)]"
-                >
-                  profile.name
-                </label>
-                <Input
-                  id="profile-name"
-                  name="name"
-                  minLength={2}
-                  maxLength={100}
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  required
-                />
+                <Field label="profile.name" htmlFor="profile-name">
+                  <Input
+                    id="profile-name"
+                    name="name"
+                    minLength={2}
+                    maxLength={100}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    required
+                  />
+                </Field>
                 <Button className="w-full" disabled={saving}>
                   {saving ? "Salvando..." : "Trocar nome"}
                 </Button>
@@ -132,12 +122,12 @@ export function AppNavigation({ userName }: { userName?: string | null }) {
         <Button
           type="button"
           variant="ghost"
+          size="icon"
           onClick={signOut}
           aria-label="Sair"
           title="Sair"
-          className="w-10 px-0"
         >
-          <FontAwesomeIcon icon={faRightFromBracket} />
+          <LogOut size={16} aria-hidden="true" />
         </Button>
       </div>
     </nav>

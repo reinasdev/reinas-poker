@@ -28,12 +28,20 @@ export const roundStatus = pgEnum("round_status", [
   "CLOSED",
 ]);
 
+/**
+ * Espelho local dos usuários do reinas-id.
+ * O `id` é sempre o id emitido pelo reinas-id — nunca gerado aqui — para que
+ * as salas continuem podendo fazer JOIN por nome sem chamada de rede.
+ */
 export const users = pgTable(
   "users",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey(),
     email: varchar("email", { length: 320 }).notNull(),
     name: varchar("name", { length: 100 }),
+    syncedAt: timestamp("synced_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -43,39 +51,7 @@ export const users = pgTable(
   },
   (t) => [uniqueIndex("users_email_lower_unique").on(sql`lower(${t.email})`)],
 );
-export const magicCodes = pgTable(
-  "magic_codes",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    email: varchar("email", { length: 320 }).notNull(),
-    codeHash: varchar("code_hash", { length: 64 }).notNull(),
-    attempts: integer("attempts").notNull().default(0),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    consumedAt: timestamp("consumed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [index("magic_codes_email_created_idx").on(t.email, t.createdAt)],
-);
-export const sessions = pgTable(
-  "sessions",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("sessions_token_hash_unique").on(t.tokenHash),
-    index("sessions_user_idx").on(t.userId),
-  ],
-);
+
 export const rooms = pgTable(
   "rooms",
   {
@@ -100,6 +76,7 @@ export const rooms = pgTable(
     index("rooms_admin_idx").on(t.adminId),
   ],
 );
+
 export const roomParticipants = pgTable(
   "room_participants",
   {
@@ -119,6 +96,7 @@ export const roomParticipants = pgTable(
     index("participants_room_idx").on(t.roomId),
   ],
 );
+
 export const tasks = pgTable(
   "tasks",
   {
@@ -143,6 +121,7 @@ export const tasks = pgTable(
     index("tasks_room_status_idx").on(t.roomId, t.status),
   ],
 );
+
 export const votingRounds = pgTable(
   "voting_rounds",
   {
@@ -162,6 +141,7 @@ export const votingRounds = pgTable(
     index("rounds_task_status_idx").on(t.taskId, t.status),
   ],
 );
+
 export const votes = pgTable(
   "votes",
   {

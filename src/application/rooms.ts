@@ -34,6 +34,8 @@ function event(type: RoomEvent["type"], roomId: string) {
     at: new Date().toISOString(),
   });
 }
+
+// Queries
 export async function listOwnedRooms(userId: string) {
   return db
     .select()
@@ -58,11 +60,13 @@ export async function getRoomBySlug(slug: string) {
     .limit(1);
   return room ?? null;
 }
+
+// Access and authorization
 export async function createRoom(userId: string, input: unknown) {
   const value = createRoomSchema.parse(input);
   const passwordHash = await hashPassword(value.password);
   try {
-    return await db.transaction(async (tx) => {
+    return await repositories.transaction(async (tx) => {
       const [room] = await tx
         .insert(rooms)
         .values({
@@ -150,6 +154,8 @@ async function roomContext(
     throw new DomainError("ROOM_FINISHED", "Sala finalizada", 409);
   return { room, member };
 }
+
+// Task queue commands
 export async function addTask(
   userId: string,
   roomId: string,
@@ -192,21 +198,24 @@ export async function editTask(
   titleRaw: string,
   linkRaw: string,
 ) {
-  await roomContext(roomId, userId, true);
-  await db
-    .update(tasks)
-    .set({
-      title: taskTitleSchema.parse(titleRaw),
-      link: taskUrlSchema.parse(linkRaw),
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(tasks.id, taskId),
-        eq(tasks.roomId, roomId),
-        ne(tasks.status, "COMPLETED"),
-      ),
-    );
+  await repositories.transaction(async (tx) => {
+    await repositories.lockRoom(tx, roomId);
+    await roomContext(roomId, userId, true, tx);
+    await tx
+      .update(tasks)
+      .set({
+        title: taskTitleSchema.parse(titleRaw),
+        link: taskUrlSchema.parse(linkRaw),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(tasks.id, taskId),
+          eq(tasks.roomId, roomId),
+          ne(tasks.status, "COMPLETED"),
+        ),
+      );
+  });
   event("queue.changed", roomId);
 }
 export async function removeTask(
@@ -214,9 +223,9 @@ export async function removeTask(
   roomId: string,
   taskId: string,
 ) {
-  await roomContext(roomId, userId, true);
-  await db.transaction(async (tx) => {
-    await tx.execute(sql`select id from rooms where id=${roomId} for update`);
+  await repositories.transaction(async (tx) => {
+    await repositories.lockRoom(tx, roomId);
+    await roomContext(roomId, userId, true, tx);
     const [removed] = await tx
       .delete(tasks)
       .where(
@@ -272,8 +281,9 @@ export async function reorderTasks(
   roomId: string,
   ids: string[],
 ) {
-  await roomContext(roomId, userId, true);
-  await db.transaction(async (tx) => {
+  await repositories.transaction(async (tx) => {
+    await repositories.lockRoom(tx, roomId);
+    await roomContext(roomId, userId, true, tx);
     const eligible = await tx
       .select()
       .from(tasks)
@@ -316,6 +326,8 @@ async function currentRound(roomId: string, executor: DatabaseExecutor = db) {
     throw new DomainError("NO_CURRENT_TASK", "Não há tarefa em votação", 409);
   return row;
 }
+
+// Voting commands
 export async function castVote(userId: string, roomId: string, value: string) {
   await repositories.transaction(async (tx) => {
     await repositories.lockRoom(tx, roomId);
@@ -443,29 +455,34 @@ export async function finishRoom(userId: string, roomId: string) {
   });
   event("room.finished", roomId);
 }
+
+// Projections
 export async function roomProjection(roomId: string, userId: string) {
-  const [room] = await db
-    .select()
-    .from(rooms)
-    .where(eq(rooms.id, roomId))
-    .limit(1);
+  // As quatro leituras são independentes: uma ida ao banco em vez de quatro.
+  const [rows, member, queue, participants] = await Promise.all([
+    db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1),
+    getMembership(roomId, userId),
+    db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.roomId, roomId))
+      .orderBy(asc(tasks.position)),
+    db
+      .select({ id: roomParticipants.id, userId: users.id, name: users.name })
+      .from(roomParticipants)
+      .innerJoin(users, eq(users.id, roomParticipants.userId))
+      .where(eq(roomParticipants.roomId, roomId)),
+  ]);
+
+  const [room] = rows;
   if (!room) throw new DomainError("NOT_FOUND", "Sala não encontrada", 404);
-  const member = await getMembership(roomId, userId);
   if (room.status === "ACTIVE" && !member) throw forbidden();
-  const queue = await db
-    .select()
-    .from(tasks)
-    .where(eq(tasks.roomId, roomId))
-    .orderBy(asc(tasks.position));
-  const participants = await db
-    .select({ id: roomParticipants.id, userId: users.id, name: users.name })
-    .from(roomParticipants)
-    .innerJoin(users, eq(users.id, roomParticipants.userId))
-    .where(eq(roomParticipants.roomId, roomId));
+
   let round: null | typeof votingRounds.$inferSelect = null;
   let visibleVotes: Array<{ participantId: string; value?: string }> = [];
   let selectedVote: string | undefined;
-  const current = queue.find((t) => t.status === "VOTING");
+
+  const current = queue.find((task) => task.status === "VOTING");
   if (current) {
     [round] = await db
       .select()
@@ -473,6 +490,7 @@ export async function roomProjection(roomId: string, userId: string) {
       .where(eq(votingRounds.taskId, current.id))
       .orderBy(desc(votingRounds.sequence))
       .limit(1);
+
     if (round) {
       const raw = await db
         .select({ participantId: votes.participantId, value: votes.value })
@@ -482,6 +500,11 @@ export async function roomProjection(roomId: string, userId: string) {
       selectedVote = raw.find((v) => v.participantId === member?.id)?.value;
     }
   }
+
+  const voteByParticipant = new Map(
+    visibleVotes.map((vote) => [vote.participantId, vote]),
+  );
+
   return {
     room: {
       id: room.id,
@@ -497,11 +520,14 @@ export async function roomProjection(roomId: string, userId: string) {
     member,
     deck: DECKS[room.style],
     tasks: queue,
-    participants: participants.map((p) => ({
-      ...p,
-      hasVoted: visibleVotes.some((v) => v.participantId === p.id),
-      vote: visibleVotes.find((v) => v.participantId === p.id)?.value,
-    })),
+    participants: participants.map((participant) => {
+      const vote = voteByParticipant.get(participant.id);
+      return {
+        ...participant,
+        hasVoted: Boolean(vote),
+        vote: vote?.value,
+      };
+    }),
     round: round && {
       id: round.id,
       status: round.status,
@@ -510,6 +536,7 @@ export async function roomProjection(roomId: string, userId: string) {
     selectedVote,
   };
 }
+
 export async function roomSummary(roomId: string) {
   const [room] = await db
     .select()
@@ -518,36 +545,60 @@ export async function roomSummary(roomId: string) {
     .limit(1);
   if (!room || room.status !== "FINISHED")
     throw new DomainError("NOT_FINISHED", "Sala ainda está ativa", 409);
+
   const queue = await db
     .select()
     .from(tasks)
     .where(eq(tasks.roomId, roomId))
     .orderBy(asc(tasks.position));
-  const result = [];
-  for (const task of queue) {
-    const rounds = await db
+  if (queue.length === 0) return { room, tasks: [] };
+
+  const taskIds = queue.map((task) => task.id);
+
+  // Uma consulta para todas as rodadas e outra para todos os votos, em vez de
+  // duas por tarefa: o resumo era o ponto mais lento da sala finalizada.
+  const [rounds, allVotes] = await Promise.all([
+    db
       .select()
       .from(votingRounds)
-      .where(eq(votingRounds.taskId, task.id))
-      .orderBy(asc(votingRounds.sequence));
-    const history = [];
-    for (const round of rounds) {
-      const roundVotes = await db
-        .select({ value: votes.value, name: users.name })
-        .from(votes)
-        .innerJoin(
-          roomParticipants,
-          eq(roomParticipants.id, votes.participantId),
-        )
-        .innerJoin(users, eq(users.id, roomParticipants.userId))
-        .where(eq(votes.roundId, round.id));
-      history.push({
+      .where(inArray(votingRounds.taskId, taskIds))
+      .orderBy(asc(votingRounds.sequence)),
+    db
+      .select({
+        roundId: votes.roundId,
+        value: votes.value,
+        name: users.name,
+      })
+      .from(votes)
+      .innerJoin(votingRounds, eq(votingRounds.id, votes.roundId))
+      .innerJoin(roomParticipants, eq(roomParticipants.id, votes.participantId))
+      .innerJoin(users, eq(users.id, roomParticipants.userId))
+      .where(inArray(votingRounds.taskId, taskIds)),
+  ]);
+
+  const votesByRound = new Map<string, Array<{ value: string; name: string | null }>>();
+  for (const vote of allVotes) {
+    const bucket = votesByRound.get(vote.roundId);
+    if (bucket) bucket.push({ value: vote.value, name: vote.name });
+    else votesByRound.set(vote.roundId, [{ value: vote.value, name: vote.name }]);
+  }
+
+  const roundsByTask = new Map<string, typeof rounds>();
+  for (const round of rounds) {
+    const bucket = roundsByTask.get(round.taskId);
+    if (bucket) bucket.push(round);
+    else roundsByTask.set(round.taskId, [round]);
+  }
+
+  return {
+    room,
+    tasks: queue.map((task) => ({
+      ...task,
+      rounds: (roundsByTask.get(task.id) ?? []).map((round) => ({
         sequence: round.sequence,
         status: round.status,
-        votes: roundVotes,
-      });
-    }
-    result.push({ ...task, rounds: history });
-  }
-  return { room, tasks: result };
+        votes: votesByRound.get(round.id) ?? [],
+      })),
+    })),
+  };
 }

@@ -12,10 +12,6 @@ export function safeReturnPath(
   return value;
 }
 
-export function pathWithReturn(destination: string, nextPath: string) {
-  return `${destination}?next=${encodeURIComponent(safeReturnPath(nextPath))}`;
-}
-
 export function authenticatedBackPath(pathname: string) {
   return pathname === "/rooms" ? null : "/rooms";
 }

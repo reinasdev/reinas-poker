@@ -1,30 +1,49 @@
+name: reinas-poker
+
+# Este compose sobe apenas o Planning Poker e o banco dele.
+# O login depende do reinas-id, que tem o próprio repositório e o próprio
+# compose (com Postgres e Mailpit): https://github.com/reinasdev/reinas-id
 services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: planning_poker
-      POSTGRES_USER: planning_poker
-      POSTGRES_PASSWORD: planning_poker
+      POSTGRES_DB: reinas_poker
+      POSTGRES_USER: reinas_poker
+      POSTGRES_PASSWORD: reinas_poker
     ports: ["5432:5432"]
     volumes: ["postgres_data:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U planning_poker -d planning_poker"]
+      test: ["CMD-SHELL", "pg_isready -U reinas_poker -d reinas_poker"]
       interval: 3s
       timeout: 3s
       retries: 20
-  mailpit:
-    image: axllent/mailpit:v1.27
-    ports: ["1025:1025", "8025:8025"]
+
   app:
     build: { context: ., target: development }
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://planning_poker:planning_poker@postgres:5432/planning_poker
-      SMTP_HOST: mailpit
+      DATABASE_URL: postgresql://reinas_poker:reinas_poker@postgres:5432/reinas_poker
+      APP_URL: http://localhost:3000
+      # O reinas-id roda fora deste compose, no host.
+      REINAS_ID_URL: http://host.docker.internal:3001
+      REINAS_ID_PUBLIC_URL: http://localhost:3001
+    extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["3000:3000"]
     volumes: [".:/app", "/app/node_modules", "/app/.next"]
     depends_on:
       postgres: { condition: service_healthy }
-      mailpit: { condition: service_started }
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
 volumes:
   postgres_data:

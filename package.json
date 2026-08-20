@@ -1,10 +1,16 @@
 {
-  "name": "planning-poker",
+  "name": "reinas-poker",
   "version": "0.1.0",
   "private": true,
+  "description": "Planning Poker: estimativas colaborativas em tempo real",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reinasdev/reinas-poker.git"
+  },
   "scripts": {
-    "dev": "next dev --hostname 0.0.0.0",
+    "dev": "next dev --turbopack --hostname 0.0.0.0",
     "build": "next build",
+    "build:deploy": "npm run db:migrate && npm run build",
     "start": "next start --hostname 0.0.0.0",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -19,40 +25,49 @@
     "db:seed": "tsx src/infrastructure/db/seed.ts"
   },
   "dependencies": {
-    "@fortawesome/free-brands-svg-icons": "^7.3.0",
-    "@fortawesome/free-solid-svg-icons": "^7.3.0",
-    "@fortawesome/react-fontawesome": "^3.3.1",
-    "argon2": "latest",
-    "clsx": "latest",
-    "drizzle-orm": "latest",
-    "lucide-react": "latest",
-    "next": "latest",
-    "nodemailer": "latest",
-    "pg": "latest",
+    "@reinas/ui": "git+https://github.com/reinasdev/reinas-ui.git#main",
+    "argon2": "^0.44.0",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^0.545.0",
+    "next": "^16.3.1",
+    "pg": "^8.16.3",
     "qrcode.react": "^4.2.0",
-    "react": "latest",
-    "react-dom": "latest",
-    "tailwind-merge": "latest",
-    "zod": "latest"
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
-    "@tailwindcss/postcss": "latest",
-    "@types/node": "latest",
-    "@types/nodemailer": "latest",
-    "@types/pg": "latest",
-    "@types/react": "latest",
-    "@types/react-dom": "latest",
-    "drizzle-kit": "latest",
-    "eslint": "latest",
-    "eslint-config-next": "latest",
-    "jsdom": "latest",
-    "tailwindcss": "latest",
-    "tsx": "latest",
-    "typescript": "latest",
-    "vitest": "latest"
+    "@tailwindcss/postcss": "^4.1.14",
+    "@types/node": "^24.7.0",
+    "@types/pg": "^8.15.5",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "drizzle-kit": "^0.31.5",
+    "eslint": "^9.37.0",
+    "eslint-config-next": "^16.3.1",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   },
   "overrides": {
-    "postcss": "8.5.15"
+    "postcss": "^8.5.23"
+  },
+  "//optionalDependencies": "O lock gerado no Windows não registra os binários nativos de Linux, e `npm ci` só instala o que está no lock — sem isso o build em container e no CI quebra. Declará-los aqui força o registro; em cada plataforma o npm instala apenas os compatíveis.",
+  "optionalDependencies": {
+    "@esbuild/linux-arm64": "0.25.12",
+    "@esbuild/linux-x64": "0.25.12",
+    "@rollup/rollup-linux-arm64-gnu": "4.62.4",
+    "@rollup/rollup-linux-x64-gnu": "4.62.4",
+    "@tailwindcss/oxide-linux-arm64-gnu": "4.3.3",
+    "@tailwindcss/oxide-linux-x64-gnu": "4.3.3",
+    "@unrs/resolver-binding-linux-arm64-gnu": "1.12.2",
+    "@unrs/resolver-binding-linux-x64-gnu": "1.12.2",
+    "lightningcss-linux-arm64-gnu": "1.32.0",
+    "lightningcss-linux-x64-gnu": "1.32.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

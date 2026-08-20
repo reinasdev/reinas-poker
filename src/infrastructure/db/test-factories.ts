@@ -1,8 +1,13 @@
+import { randomUUID } from "node:crypto";
 import type { DatabaseExecutor } from "./repositories";
 import { roomParticipants, rooms, users } from "./schema";
 
 let sequence = 0;
 
+/**
+ * O `id` é obrigatório porque a tabela é um espelho do reinas-id:
+ * quem gera identificadores de usuário é sempre o serviço de identidade.
+ */
 export async function userFactory(
   executor: DatabaseExecutor,
   overrides: Partial<typeof users.$inferInsert> = {},
@@ -11,7 +16,8 @@ export async function userFactory(
   const [user] = await executor
     .insert(users)
     .values({
-      email: `user-${sequence}@example.test`,
+      id: randomUUID(),
+      email: `user-${sequence}-${randomUUID().slice(0, 8)}@example.test`,
       name: `User ${sequence}`,
       ...overrides,
     })

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google";
+import { ThemeScript } from "@reinas/ui";
 import { AppFooter } from "@/components/layout/app-footer";
 import "./globals.css";
 
@@ -19,7 +20,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const themeScript = `try{var t=localStorage.getItem("theme");document.documentElement.dataset.theme=t==="light"?"light":"dark"}catch(e){document.documentElement.dataset.theme="dark"}`;
   return (
     <html
       lang="pt-BR"
@@ -38,7 +38,7 @@ export default function RootLayout({
           href="/favicon-dark.svg"
           media="(prefers-color-scheme: dark)"
         />
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <ThemeScript />
       </head>
       <body className="flex min-h-screen flex-col">
         <main className="flex-1">{children}</main>

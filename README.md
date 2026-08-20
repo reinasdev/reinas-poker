@@ -9,63 +9,141 @@
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ed?logo=docker&logoColor=white)
 ![Playwright](https://img.shields.io/badge/Playwright-E2E-2ead33?logo=playwright&logoColor=white)
 
-Planning Poker is a dark-first, developer-focused estimation room for agile teams. It combines real-time collaborative voting, secure magic-code authentication, protected rooms, task queues, vote reveal flows, and final read-only summaries in a technical interface inspired by terminals, observability dashboards, and engineering tools.
+Sala de estimativas colaborativa para times ágeis: fila de tarefas, votação
+escondida até a revelação e resumo somente leitura ao final.
 
-Built with Next.js App Router, PostgreSQL, Drizzle ORM, Server-Sent Events, Tailwind CSS, shadcn-style primitives, JetBrains Mono, and Font Awesome.
+Este repositório contém apenas o produto. Duas peças vivem fora dele:
 
-## Highlights
+| Projeto                                                        | Papel                                        |
+| -------------------------------------------------------------- | -------------------------------------------- |
+| [`reinas-id`](https://github.com/reinasdev/reinas-id)           | Login, sessões e autorização — banco próprio  |
+| [`reinas-ui`](https://github.com/reinasdev/reinas-ui)           | Design system, instalado como dependência Git |
 
-- Real-time Planning Poker rooms with Scrum, Fibonacci, and T-shirt decks.
-- Magic-code login by email with profile onboarding.
-- Protected rooms with four-digit access codes and invite links using `?senha=`.
-- Admin workflow for task queue management, reveal, restart, complete, and finish.
-- Participant-safe projections: hidden votes stay hidden until reveal.
-- Developer-first visual system with dark/light grayscale themes, technical labels, badges, QR code sharing, and responsive layouts.
-- Room history and final summary for completed sessions.
-- Docker-first local environment with PostgreSQL and Mailpit.
-- Automated quality gates with lint, typecheck, unit/integration tests, E2E tests, build, and migration validation.
-
-## Product Flow
-
-1. Request a magic code by email.
-2. Complete your display name on first access.
-3. Create a room with a slug, password, and voting deck.
-4. Share the room link, access code, or QR code.
-5. Add tasks, vote privately, reveal estimates, and complete rounds.
-6. Finish the room and keep a read-only summary of the session.
-
-## Tech Stack
-
-| Layer    | Tools                                                               |
-| -------- | ------------------------------------------------------------------- |
-| App      | Next.js App Router, React, TypeScript                               |
-| UI       | Tailwind CSS, shadcn-style primitives, JetBrains Mono, Font Awesome |
-| Data     | PostgreSQL, Drizzle ORM, versioned migrations                       |
-| Auth     | Magic code email flow, hashed tokens, secure cookies                |
-| Realtime | Server-Sent Events with authorized projection refresh               |
-| Infra    | Docker Compose, Mailpit                                             |
-| Quality  | ESLint, TypeScript, Vitest, Playwright                              |
-
-## Quick Start
+## Quick start
 
 ```bash
+npm install
 cp .env.example .env
-make dev
+
+make infra          # Postgres em :5432
+npm run db:migrate
+npm run dev         # http://localhost:3000
 ```
 
-Open:
+O login exige o **reinas-id rodando em :3001**. No repositório dele:
 
-- App: http://localhost:3000
-- Mailpit: http://localhost:8025
+```bash
+make infra && npm run db:migrate && npm run dev
+```
 
-For detailed setup, commands, migrations, tests, and local development notes, see [DEVELOPMENT.md](./DEVELOPMENT.md).
+| Endereço                | O quê                             |
+| ----------------------- | --------------------------------- |
+| http://localhost:3000   | Planning Poker                    |
+| http://localhost:3001   | Reinas ID (outro repositório)     |
+| http://localhost:8025   | Mailpit — códigos de acesso       |
 
-## Documentation
+## Funcionalidades
 
-- [Development guide](./DEVELOPMENT.md)
-- [Security policy](./SECURITY.md)
-- [OpenSpec specs](./openspec/specs)
+- Decks Scrum, Fibonacci e camisetas.
+- Salas com slug próprio, senha de quatro dígitos e convite via `?senha=`.
+- QR code de convite para entrar pelo celular.
+- Fila de tarefas com reordenação, edição e remoção.
+- Votação com revelação controlada pelo administrador, reinício de rodada e
+  conclusão com ou sem consenso.
+- Sincronização em tempo real por Server-Sent Events.
+- Resumo somente leitura com o histórico de rodadas e votos.
+- Tema claro/escuro.
 
-## License
+## Fluxo do produto
 
-Private project.
+1. Abrir o Planning Poker leva ao login do Reinas ID, carregando o destino.
+2. O código de seis dígitos chega por email; o primeiro acesso pede um nome.
+3. O Reinas ID devolve o navegador com um código de uso único.
+4. Crie uma sala com slug, senha e deck.
+5. Compartilhe link, senha ou QR code.
+6. Adicione tarefas, vote, revele e conclua rodadas.
+7. Finalize a sala e consulte o resumo somente leitura.
+
+## Autenticação
+
+Não há tela de login aqui. Visitante sem sessão é mandado para o `/authorize` do
+Reinas ID, carregando o destino em `state`; a volta cai em `/auth/callback`, que
+troca o código por uma sessão e grava o cookie.
+
+```
+poker /sala ──▶ reinas-id /authorize ──▶ código por email ──▶ perfil
+     ◀── /auth/callback?code=… ◀────────────────────────────────┘
+     └──▶ POST /api/oauth/token ──▶ sessão + cookie próprio
+```
+
+Durante a navegação, cada requisição valida o token contra o Reinas ID, com
+cache em memória de `SESSION_CACHE_SECONDS` (padrão 60s) para não pagar uma ida
+à rede por render.
+
+A tabela `users` daqui é um **espelho**: id (sempre o do Reinas ID), email e
+nome, atualizada de tempos em tempos. Ela existe só para o `JOIN` que mostra
+nomes de participantes sem chamada de rede — a fonte da verdade é o Reinas ID.
+
+Sair passa pelo `/logout` do Reinas ID. Apagar só o cookie local faria o próximo
+redirecionamento reautenticar em silêncio.
+
+## Arquitetura
+
+```
+src/
+  app/               rotas, API e páginas
+  application/       casos de uso (auth, rooms)
+  domain/            regras puras: decks, validação, projeção, navegação
+  infrastructure/
+    config/          env validado com zod
+    db/              schema, cliente, migrations, repositórios
+    identity/        cliente do reinas-id, com cache de introspecção
+    observability/   log estruturado e métricas
+    realtime/        publisher de eventos por sala
+    security/        hash de senha de sala
+  components/        UI específica do poker
+  presentation/      rótulos legíveis
+```
+
+## Notas de performance
+
+- Ícones vêm do `lucide-react`, com `optimizePackageImports`.
+- O QR code entra por import dinâmico, sem SSR, e só para o administrador.
+- A sala é dividida em componentes memoizados: uma mudança de voto não
+  re-renderiza a fila nem o compartilhamento.
+- Eventos SSE em rajada viram uma releitura só (coalescência de 120ms), com a
+  requisição anterior abortada.
+- `/api/rooms/[id]/projection` responde `304` via ETag quando nada mudou — o
+  estado nem é tocado, então não há re-render.
+- A recuperação periódica só roda com a aba visível, e a volta ao foco força uma
+  releitura.
+- A projeção lê sala, participação, tarefas e participantes em paralelo.
+- O resumo da sala finalizada usa três consultas no total, em vez de duas por
+  tarefa.
+
+## Banco
+
+Seis tabelas em `reinas_poker`: `users` (espelho), `rooms`, `room_participants`,
+`tasks`, `voting_rounds`, `votes`.
+
+## Testes
+
+```bash
+npm test                    # unitários
+RUN_DB_TESTS=1 npm test     # + integração com PostgreSQL
+npm run test:e2e            # Playwright; exige o reinas-id de pé
+```
+
+O E2E cobre o fluxo inteiro com dois navegadores simultâneos (administrador e
+participante), incluindo sincronização por SSE, e grava a sequência de telas em
+`test-results/screenshots/`.
+
+## Documentação
+
+- [Desenvolvimento local](./DEVELOPMENT.md)
+- [Deploy e migrations](./DEPLOYMENT.md)
+- [Política de segurança](./SECURITY.md)
+
+## Licença
+
+Projeto privado.

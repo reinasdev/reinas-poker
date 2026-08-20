@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-const envBoolean = z
-  .enum(["true", "false", "1", "0"])
-  .transform((value) => value === "true" || value === "1");
-
 const schema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -12,25 +8,27 @@ const schema = z.object({
     .string()
     .url()
     .default(
-      "postgresql://planning_poker:planning_poker@localhost:5432/planning_poker",
+      "postgresql://reinas_poker:reinas_poker@localhost:5432/reinas_poker",
     ),
   APP_URL: z.string().url().default("http://localhost:3000"),
-  SESSION_COOKIE_NAME: z.string().default("planning_poker_session"),
-  AUTH_HASH_SECRET: z
+  SESSION_COOKIE_NAME: z.string().default("reinas_poker_session"),
+
+  /** URL usada pelo servidor — na rede interna do compose. */
+  REINAS_ID_URL: z.string().url().default("http://localhost:3001"),
+  /** URL para onde o navegador é redirecionado; cai para REINAS_ID_URL. */
+  REINAS_ID_PUBLIC_URL: z.string().url().optional(),
+  REINAS_ID_CLIENT_ID: z.string().default("reinas-poker"),
+  REINAS_ID_CLIENT_SECRET: z
     .string()
-    .min(32)
-    .default("development-secret-change-me-32-chars"),
-  SMTP_HOST: z.string().default("localhost"),
-  SMTP_PORT: z.coerce.number().int().default(1025),
-  SMTP_SECURE: envBoolean.default(false),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASSWORD: z.string().optional(),
-  SMTP_FROM: z
-    .string()
-    .default("Planning Poker <no-reply@planning-poker.local>"),
-  MAGIC_CODE_TTL_MINUTES: z.coerce.number().int().default(10),
-  MAGIC_CODE_COOLDOWN_SECONDS: z.coerce.number().int().default(60),
-  MAGIC_CODE_MAX_ATTEMPTS: z.coerce.number().int().default(5),
-  SESSION_TTL_DAYS: z.coerce.number().int().default(30),
+    .min(16)
+    .default("development-client-secret-change-me"),
+  /** Janela de cache da introspecção de sessão, em segundos. */
+  SESSION_CACHE_SECONDS: z.coerce.number().int().min(0).default(60),
 });
-export const env = schema.parse(process.env);
+
+const parsed = schema.parse(process.env);
+
+export const env = {
+  ...parsed,
+  REINAS_ID_PUBLIC_URL: parsed.REINAS_ID_PUBLIC_URL ?? parsed.REINAS_ID_URL,
+};
